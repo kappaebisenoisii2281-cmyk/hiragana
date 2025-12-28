@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>ひらがな入力アプリ</title>
+
+<style>
+  body {
+    font-family: sans-serif;
+    text-align: center;
+  }
+
+  /* 五十音表 */
+  .table {
+    display: grid;
+    grid-template-rows: repeat(5, 56px);
+    grid-auto-flow: column;
+    gap: 6px;
+    justify-content: center;
+    margin-bottom: 16px;
+  }
+
+  button {
+    font-size: 20px;
+    padding: 8px;
+    cursor: pointer;
+    touch-action: manipulation;
+  }
+
+  .empty {
+    visibility: hidden;
+  }
+
+  /* 入力結果（横書き） */
+  #result {
+    font-size: 28px;
+    min-height: 60px;
+    border: 1px solid #ccc;
+    padding: 10px;
+    margin: 10px auto;
+    width: 90%;
+    writing-mode: horizontal-tb;
+    white-space: pre-wrap;
+  }
+
+  .controls {
+    margin-top: 10px;
+  }
+</style>
+</head>
+
+<body>
+
+<h1>ひらがな入力</h1>
+
+<div class="table" id="gojuon"></div>
+
+<div id="result"></div>
+
+<div class="controls">
+  <button id="del">一文字けす</button>
+  <button id="clear">全部けす</button>
+</div>
+
+<div class="controls">
+  <button data-char="゛">゛</button>
+  <button data-char="゜">゜</button>
+  <button data-char="ゃ">ゃ</button>
+  <button data-char="ゅ">ゅ</button>
+  <button data-char="ょ">ょ</button>
+  <button data-char="っ">っ</button>
+  <button data-char="ぁ">ぁ</button>
+  <button data-char="ぃ">ぃ</button>
+  <button data-char="ぅ">ぅ</button>
+  <button data-char="ぇ">ぇ</button>
+  <button data-char="ぉ">ぉ</button>
+</div>
+
+<script>
+  const gojuonTable = [
+    ["あ","い","う","え","お"],
+    ["か","き","く","け","こ"],
+    ["さ","し","す","せ","そ"],
+    ["た","ち","つ","て","と"],
+    ["な","に","ぬ","ね","の"],
+    ["は","ひ","ふ","へ","ほ"],
+    ["ま","み","む","め","も"],
+    ["や","","ゆ","","よ"],
+    ["ら","り","る","れ","ろ"],
+    ["わ","","","","を"],
+    ["ん","","","",""]
+  ];
+
+  const dakutenMap = {
+    "か":"が","き":"ぎ","く":"ぐ","け":"げ","こ":"ご",
+    "さ":"ざ","し":"じ","す":"ず","せ":"ぜ","そ":"ぞ",
+    "た":"だ","ち":"ぢ","つ":"づ","て":"で","と":"ど",
+    "は":"ば","ひ":"び","ふ":"ぶ","へ":"べ","ほ":"ぼ"
+  };
+
+  const handakutenMap = {
+    "は":"ぱ","ひ":"ぴ","ふ":"ぷ","へ":"ぺ","ほ":"ぽ"
+  };
+
+  const container = document.getElementById("gojuon");
+  const result = document.getElementById("result");
+
+  /* click + touch 両対応 */
+  function bindAction(el, func) {
+    el.addEventListener("click", func);
+    el.addEventListener("touchstart", e => {
+      e.preventDefault();
+      func();
+    });
+  }
+
+  function add(char) {
+    result.textContent += char;
+  }
+
+  function deleteOne() {
+    result.textContent = result.textContent.slice(0, -1);
+  }
+
+  function clearText() {
+    result.textContent = "";
+  }
+
+  function addDakuten() {
+    const text = result.textContent;
+    if (!text) return;
+    const last = text.slice(-1);
+    if (dakutenMap[last]) {
+      result.textContent = text.slice(0, -1) + dakutenMap[last];
+    }
+  }
+
+  function addHandakuten() {
+    const text = result.textContent;
+    if (!text) return;
+    const last = text.slice(-1);
+    if (handakutenMap[last]) {
+      result.textContent = text.slice(0, -1) + handakutenMap[last];
+    }
+  }
+
+  /* 五十音表生成 */
+  gojuonTable.forEach(row => {
+    row.forEach(char => {
+      const btn = document.createElement("button");
+      btn.textContent = char;
+
+      if (char === "") {
+        btn.classList.add("empty");
+        btn.disabled = true;
+      } else {
+        bindAction(btn, () => add(char));
+      }
+      container.appendChild(btn);
+    });
+  });
+
+  /* 操作ボタン */
+  bindAction(document.getElementById("del"), deleteOne);
+  bindAction(document.getElementById("clear"), clearText);
+
+  document.querySelectorAll("[data-char]").forEach(btn => {
+    const char = btn.dataset.char;
+    if (char === "゛") bindAction(btn, addDakuten);
+    else if (char === "゜") bindAction(btn, addHandakuten);
+    else bindAction(btn, () => add(char));
+  });
+</script>
+
+</body>
+</html>
