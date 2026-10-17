@@ -1,51 +1,133 @@
+
 <!DOCTYPE html>
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>ひらがな入力</title>
 
 <style>
-  body {
-    font-family: sans-serif;
-    text-align: center;
-  }
+* {
+  box-sizing: border-box;
+}
 
-  /* 五十音表 */
-  .table {
-    display: grid;
-    grid-template-rows: repeat(5, 56px);
-    grid-auto-flow: column;
-    gap: 6px;
-    justify-content: center;
-    margin-bottom: 16px;
-  }
+html, body {
+  margin: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
 
-  button {
-    font-size: 20px;
-    padding: 20px;
-    cursor: pointer;
-    touch-action: manipulation;
-  }
+body {
+  font-family: sans-serif;
+  text-align: center;
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  overflow: hidden;
+}
 
-  .empty {
-    visibility: hidden;
-  }
+/* タイトル */
+h1 {
+  font-size: clamp(18px, 3vh, 28px);
+  margin: 0;
+  flex: 0 0 auto;
+}
 
-  /* 入力結果（横書き） */
-  #result {
-    font-size: 28px;
-    min-height: 60px;
-    border: 1px solid #ccc;
-    padding: 10px;
-    margin: 10px auto;
-    width: 90%;
-    writing-mode: horizontal-tb;
-    white-space: pre-wrap;
-  }
+/* 入力結果 */
+#result {
+  font-size: clamp(20px, 3.5vh, 32px);
+  height: 10vh;
+  min-height: 0;
+  overflow: hidden;
+  border: 1px solid #ccc;
+  padding: 4px;
+  margin: 0;
+  width: 100%;
+  flex: 0 0 10vh;
+  writing-mode: horizontal-tb;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  text-align: left;
+}
 
-  .controls {
-    margin-top: 10px;
-  }
+/* 五十音表 */
+.table {
+  display: grid;
+  grid-template-rows: repeat(5, minmax(0, 1fr));
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
+  gap: 4px;
+  width: 100%;
+  flex: 1 1 0;
+  min-height: 0;
+  margin: 0;
+  overflow: hidden;
+  direction: rtl;
+}
+
+/* ボタン共通 */
+button {
+  font-family: inherit;
+  font-size: clamp(16px, 2.5vw, 30px);
+  padding: 2px;
+  min-width: 0;
+  min-height: 0;
+  width: 100%;
+  height: 100%;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+/* 空欄 */
+.empty {
+  visibility: hidden;
+}
+
+/* 操作ボタン */
+.controls {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: nowrap;
+  width: 100%;
+  margin: 0;
+  flex: 0 0 auto;
+}
+
+/* 操作ボタンを大きくする */
+.controls button {
+  width: auto;
+  height: auto;
+  min-width: 0;
+  min-height: 48px;
+  padding: 8px 12px;
+  font-size: clamp(18px, 2.2vw, 28px);
+  white-space: nowrap;
+}
+
+#conversionCandidates {
+  width: 100%;
+  max-height: 20vh;
+  overflow-y: auto;
+  flex-shrink: 0;
+  text-align: left;
+}
+
+#conversionCandidates p {
+  margin: 6px 0;
+  font-weight: bold;
+}
+
+#conversionCandidates button {
+  width: auto;
+  height: auto;
+  min-height: 44px;
+  margin: 3px;
+  padding: 6px 12px;
+}
 </style>
 </head>
 
@@ -53,13 +135,14 @@
 
 <h1>ひらがな入力</h1>
 
-<div id="result"></div>
+<div id="result" aria-live="polite"></div>
 
 <div class="table" id="gojuon"></div>
 
 <div class="controls">
   <button id="del">一文字けす</button>
   <button id="clear">全部けす</button>
+  <button id="convert">漢字に変換</button>
 </div>
 
 <div class="controls">
@@ -74,105 +157,250 @@
   <button data-char="ぅ">ぅ</button>
   <button data-char="ぇ">ぇ</button>
   <button data-char="ぉ">ぉ</button>
+  <button id="speak">🔊 読み上げ</button>
 </div>
 
+<div id="conversionCandidates"></div>
+
 <script>
-  const gojuonTable = [
-    ["あ","い","う","え","お"],
-    ["か","き","く","け","こ"],
-    ["さ","し","す","せ","そ"],
-    ["た","ち","つ","て","と"],
-    ["な","に","ぬ","ね","の"],
-    ["は","ひ","ふ","へ","ほ"],
-    ["ま","み","む","め","も"],
-    ["や","","ゆ","","よ"],
-    ["ら","り","る","れ","ろ"],
-    ["わ","を","ん","ー","？"],
-    ["","","","",""],
-    ["1","4","7","",""],
-    ["2","5","8","0",""],
-    ["3","6","9","",""],    
-  ];
+const gojuonTable = [
+  ["あ","い","う","え","お"],
+  ["か","き","く","け","こ"],
+  ["さ","し","す","せ","そ"],
+  ["た","ち","つ","て","と"],
+  ["な","に","ぬ","ね","の"],
+  ["は","ひ","ふ","へ","ほ"],
+  ["ま","み","む","め","も"],
+  ["や","","ゆ","","よ"],
+  ["ら","り","る","れ","ろ"],
+  ["わ","を","ん","ー","？"],
+  ["","","","",""],
+  ["1","4","7","",""],
+  ["2","5","8","0",""],
+  ["3","6","9","",""]
+];
 
-  const dakutenMap = {
-    "か":"が","き":"ぎ","く":"ぐ","け":"げ","こ":"ご",
-    "さ":"ざ","し":"じ","す":"ず","せ":"ぜ","そ":"ぞ",
-    "た":"だ","ち":"ぢ","つ":"づ","て":"で","と":"ど",
-    "は":"ば","ひ":"び","ふ":"ぶ","へ":"べ","ほ":"ぼ"
+const dakutenMap = {
+  "か":"が","き":"ぎ","く":"ぐ","け":"げ","こ":"ご",
+  "さ":"ざ","し":"じ","す":"ず","せ":"ぜ","そ":"ぞ",
+  "た":"だ","ち":"ぢ","つ":"づ","て":"で","と":"ど",
+  "は":"ば","ひ":"び","ふ":"ぶ","へ":"べ","ほ":"ぼ",
+  "う":"ゔ"
+};
+
+const handakutenMap = {
+  "は":"ぱ","ひ":"ぴ","ふ":"ぷ","へ":"ぺ","ほ":"ぽ"
+};
+
+const container = document.getElementById("gojuon");
+const result = document.getElementById("result");
+
+let speechQueue = [];
+let isSpeaking = false;
+
+/* タップ操作 */
+function bindAction(el, func) {
+  el.addEventListener("click", func);
+}
+
+/* 音声を順番に再生 */
+function speakNext() {
+  if (isSpeaking || speechQueue.length === 0) return;
+
+  const text = speechQueue.shift();
+  isSpeaking = true;
+
+  const utterance = new SpeechSynthesisUtterance(text);
+  utterance.lang = "ja-JP";
+  utterance.rate = 0.9;
+
+  utterance.onend = () => {
+    isSpeaking = false;
+    speakNext();
   };
 
-  const handakutenMap = {
-    "は":"ぱ","ひ":"ぴ","ふ":"ぷ","へ":"ぺ","ほ":"ぽ"
+  utterance.onerror = () => {
+    isSpeaking = false;
+    speakNext();
   };
 
-  const container = document.getElementById("gojuon");
-  const result = document.getElementById("result");
+  speechSynthesis.speak(utterance);
+}
 
-  /* click + touch 両対応 */
-  function bindAction(el, func) {
-    el.addEventListener("click", func);
-    el.addEventListener("touchstart", e => {
-      e.preventDefault();
-      func();
-    });
+/* 文字を追加して読み上げる */
+function add(char) {
+  result.textContent += char;
+  speechQueue.push(char);
+  speakNext();
+}
+
+/* 一文字削除 */
+function deleteOne() {
+  result.textContent = result.textContent.slice(0, -1);
+}
+
+/* 全部削除 */
+function clearText() {
+  result.textContent = "";
+}
+
+/* 濁点を付ける */
+function addDakuten() {
+  const text = result.textContent;
+  if (!text) return;
+
+  const last = text.slice(-1);
+  if (dakutenMap[last]) {
+    result.textContent =
+      text.slice(0, -1) + dakutenMap[last];
   }
+}
 
-  function add(char) {
-    result.textContent += char;
+/* 半濁点を付ける */
+function addHandakuten() {
+  const text = result.textContent;
+  if (!text) return;
+
+  const last = text.slice(-1);
+  if (handakutenMap[last]) {
+    result.textContent =
+      text.slice(0, -1) + handakutenMap[last];
   }
+}
 
-  function deleteOne() {
-    result.textContent = result.textContent.slice(0, -1);
-  }
+/* 五十音表を生成 */
+gojuonTable.forEach(row => {
+  row.forEach(char => {
+    const btn = document.createElement("button");
+    btn.textContent = char;
 
-  function clearText() {
-    result.textContent = "";
-  }
-
-  function addDakuten() {
-    const text = result.textContent;
-    if (!text) return;
-    const last = text.slice(-1);
-    if (dakutenMap[last]) {
-      result.textContent = text.slice(0, -1) + dakutenMap[last];
+    if (char === "") {
+      btn.classList.add("empty");
+      btn.disabled = true;
+    } else {
+      bindAction(btn, () => add(char));
     }
+
+    container.appendChild(btn);
+  });
+});
+
+/* 操作ボタン */
+bindAction(document.getElementById("del"), deleteOne);
+bindAction(document.getElementById("clear"), clearText);
+
+/* 濁点・小さい文字 */
+document.querySelectorAll("[data-char]").forEach(btn => {
+  const char = btn.dataset.char;
+
+  if (char === "゛") {
+    bindAction(btn, addDakuten);
+  } else if (char === "゜") {
+    bindAction(btn, addHandakuten);
+  } else {
+    bindAction(btn, () => add(char));
+  }
+});
+
+/* 入力した文章を読み上げる */
+bindAction(document.getElementById("speak"), () => {
+  const text = result.textContent.trim();
+  if (!text) return;
+
+  speechQueue = [];
+  speechSynthesis.cancel();
+  isSpeaking = false;
+
+  const utterance = new SpeechSynthesisUtterance(text);
+  utterance.lang = "ja-JP";
+  utterance.rate = 0.9;
+
+  speechSynthesis.speak(utterance);
+});
+
+async function convertText() {
+  const text = result.textContent.trim();
+  const area = document.getElementById("conversionCandidates");
+
+  if (!text) {
+    area.textContent = "先に文字を入力してね！";
+    return;
   }
 
-  function addHandakuten() {
-    const text = result.textContent;
-    if (!text) return;
-    const last = text.slice(-1);
-    if (handakutenMap[last]) {
-      result.textContent = text.slice(0, -1) + handakutenMap[last];
+  area.textContent = "変換中…";
+
+  const url =
+    "https://www.google.com/transliterate" +
+    "?langpair=ja-Hira%7Cja&text=" +
+    encodeURIComponent(text);
+
+  try {
+    const response = await fetch(url);
+
+    if (!response.ok) {
+      throw new Error("通信エラー");
     }
+
+    const data = await response.json();
+
+    if (!Array.isArray(data) || data.length === 0) {
+      throw new Error("変換候補がないよ");
+    }
+
+    const parts = data.map(item => ({
+      original: item[0],
+      candidates: item[1],
+      selected: 0
+    }));
+
+    function updateText() {
+      result.textContent = parts
+        .map(part => part.candidates[part.selected])
+        .join("");
+    }
+
+    function showCandidates() {
+      area.replaceChildren();
+
+      parts.forEach((part, index) => {
+        const section = document.createElement("div");
+        const heading = document.createElement("p");
+
+        heading.textContent = `「${part.original}」の候補`;
+        section.appendChild(heading);
+
+        part.candidates.forEach((candidate, candidateIndex) => {
+          const button = document.createElement("button");
+
+          button.textContent = candidate;
+          button.style.width = "auto";
+          button.style.height = "auto";
+          button.style.minHeight = "44px";
+
+          button.addEventListener("click", () => {
+            part.selected = candidateIndex;
+            updateText();
+            showCandidates();
+          });
+
+          section.appendChild(button);
+        });
+
+        area.appendChild(section);
+      });
+    }
+
+    updateText();
+    showCandidates();
+
+  } catch (error) {
+    area.textContent =
+      "変換できなかったよ。通信環境やAPIの利用状況を確認してね。";
   }
+}
 
-  /* 五十音表生成 */
-  gojuonTable.forEach(row => {
-    row.forEach(char => {
-      const btn = document.createElement("button");
-      btn.textContent = char;
-
-      if (char === "") {
-        btn.classList.add("empty");
-        btn.disabled = true;
-      } else {
-        bindAction(btn, () => add(char));
-      }
-      container.appendChild(btn);
-    });
-  });
-
-  /* 操作ボタン */
-  bindAction(document.getElementById("del"), deleteOne);
-  bindAction(document.getElementById("clear"), clearText);
-
-  document.querySelectorAll("[data-char]").forEach(btn => {
-    const char = btn.dataset.char;
-    if (char === "゛") bindAction(btn, addDakuten);
-    else if (char === "゜") bindAction(btn, addHandakuten);
-    else bindAction(btn, () => add(char));
-  });
+document.getElementById("convert")
+  .addEventListener("click", convertText);
 </script>
 
 </body>
